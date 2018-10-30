@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="board">
+	<select id="selectBulletinList" parameterType="Map" resultType="bulVo">
+		select * from
+		(select rownum as rnum,a.*
+		from
+		(select lpad('　▶',(level-1)*4,'　　') || bul_title as bul_title
+		,bul_id
+		,bul_mem
+		,bul_date
+		,bul_chk
+		from
+		bulletin
+		where bul_brd = #{bul_brd}
+		start with bul_pid is null
+		connect by
+		prior bul_id = bul_pid
+		order siblings by bul_date desc)a
+		)
+		where
+		rnum between
+		#{pageVo.page}*#{pageVo.pageSize}-(#{pageVo.pageSize}-1)
+		and
+		#{pageVo.page}*#{pageVo.pageSize}
+		order by rownum
+	</select>
+
+	<select id="selectBoardList" resultType="brdVo">
+		select * from board
+		where brd_chk = 0
+	</select>
+
+	<select id="allBoardList" resultType="brdVo" parameterType="String">
+		select * from board
+		where brd_mem = #{brd_mem}
+	</select>
+
+	<select id="BulletinCnt" parameterType="String" resultType="int">
+		select count(*) from bulletin
+		where bul_brd = #{bul_brd}
+	</select>
+
+	<insert id="insertBrd" parameterType="brdVo">
+		insert into board
+		values
+		('BRD'||BRD_ID.NEXTVAL,#{brd_name},#{brd_chk},#{brd_mem},sysdate)
+	</insert>
+
+	<update id="updateBrd" parameterType="brdVo">
+		UPDATE BOARD
+		SET BRD_NAME =
+		#{brd_name},BRD_CHK= #{brd_chk}
+		WHERE BRD_ID = #{brd_id}
+	</update>
+
+	<select id="searchBul" parameterType="String" resultType="bulVo">
+		select
+		* from bulletin
+		where bul_id = #{bul_id}
+	</select>
+
+	<insert id="insertBul" parameterType="bulVo">
+		insert into bulletin
+		values
+		('BUL'||BUL_ID.NEXTVAL,#{bul_title},#{bul_text},SYSDATE,0,#{bul_mem},#{bul_brd},(select
+		max(groub_num) from bulletin)+1,'')
+	</insert>
+
+	<update id="bulUpdate" parameterType="bulVo">
+		update bulletin
+		set
+		bul_title = #{bul_title},bul_text = #{bul_text}
+		where bul_id =
+		#{bul_id}
+	</update>
+
+	<update id="bulDelete" parameterType="String">
+		update bulletin
+		set bul_chk
+		= 1,bul_title = '삭제된 게시글 입니다.'
+		where bul_id = #{bul_id}
+	</update>
+
+	<select id="groubNum" resultType="int">
+		select max(groub_num)+1 from
+		bulletin
+	</select>
+
+	<insert id="bulReply" parameterType="bulVo">
+		insert into bulletin
+		values
+		('BUL'||BUL_ID.NEXTVAL,#{bul_title},#{bul_text},SYSDATE,0,#{bul_mem},#{bul_brd},'',#{bul_pid})
+	</insert>
+
+	<!-- 댓글 등록 -->
+	<insert id="comInsert" parameterType="comVo">
+		insert into comments
+		values
+		('COM'||COM_ID.NEXTVAL,#{com_bul},#{com_mem},#{com_text},0,sysdate)
+	</insert>
+
+	<!-- 게시글 댓글조회 -->
+	<select id="comSearch" parameterType="String" resultType="comVo">
+		select
+		/* + INDEX (IDX_comments_01)*/ * 
+		from comments 
+		where com_bul = #{com_bul}
+		order by com_date desc
+	</select>
+
+	<!-- 댓글 삭제 -->
+	<update id="comDelete" parameterType="String">
+		update comments
+		set com_chk = 1,com_text = '삭제된 댓글입니다'
+		where com_id = #{com_id}
+	</update>
+	
+	<!-- 첨부파일 등록 -->
+	<insert id="fileInsert" parameterType="attVo">
+		<selectKey resultType="string" keyProperty="att_bul" order="BEFORE">
+			select TO_NUMBER(SUBSTR(MAX(bul_id),4,9)) from bulletin
+		</selectKey>
+			insert into attached
+			values ('ATT'||ATT_ID.NEXTVAL,#{att_file},0,#{att_path},'BUL'||#{att_bul})
+	</insert>
+	
+	<select id="attSearch" parameterType="String" resultType="attVo">
+		select 
+		/* + INDEX (IDX_ATTACHED_01)*/
+		* 
+		from attached
+		where att_bul = #{att_bul}
+	</select>	
+</mapper>
+ 
